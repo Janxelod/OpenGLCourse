@@ -13,14 +13,22 @@
 
 // Windows dimensions
 const GLint WIDTH = 800, HEIGHT = 600;
+const float toRadians = 3.14159265f / 180.0f;
 
 GLuint VAO, VBO, shader, uniformModel;
 
 bool direction = true;
+
 float triOffset = 0.0f;
 float triMaxOffset = 0.7f;
 float triIncrement = 0.005f;
 
+float curAngle = 0.001f;
+
+bool sizeOfDirection = true;
+float curSize = 0.4f;
+float maxSize = 0.8f;
+float minSize = 0.1f;
 
 // Vertext Shader
 static const char* vShader = "								\n\
@@ -32,7 +40,7 @@ uniform mat4 model; 										\n\
 															\n\
 void main()													\n\
 {															\n\
-	gl_Position = model * vec4(pos.x * 0.4f, pos.y * 0.4f, pos.z, 1.f);	\n\
+	gl_Position = model * vec4(pos, 1.f);					\n\
 }";
 
 // Fragment Shader
@@ -218,6 +226,25 @@ int main()
 			direction = !direction;
 		}
 
+		curAngle += 0.1f;
+		if (curAngle >= 360)
+		{
+			curAngle -= 360;
+		}
+
+		if (sizeOfDirection)
+		{
+			curSize += 0.001f;
+		}
+		else
+		{
+			curSize -= 0.001f;
+		}
+
+		if (curSize >= maxSize || curSize <= minSize)
+		{
+			sizeOfDirection != sizeOfDirection;
+		}
 
 		// Clear Window
 		glClearColor(0.f, 0.5f, 0.f, 1.f);
@@ -226,8 +253,16 @@ int main()
 		glUseProgram(shader);
 		
 		glm::mat4 model = glm::mat4(1.0);
-		model = glm::translate(model, glm::vec3(triOffset, triOffset, 0.0f));
-		
+		// The order how this operations are applied can change the result
+		// 1.- Translate first then rotate second will move the object while rotating.
+		// 2.- Rotate first then translate will rotate the translation also. 
+		// 3.- Scale first then translate, will scale the position its moving also
+		model = glm::translate(model, glm::vec3(triOffset, 0.0f, 0.0f));
+		model = glm::scale(model, glm::vec3(0.4f, 0.4f, 1.0f));
+		//model = glm::rotate(model, curAngle * toRadians, glm::vec3(0.f, 0.f, 1.f));
+
+
+
 		glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
 
 
