@@ -15,7 +15,7 @@
 const GLint WIDTH = 800, HEIGHT = 600;
 const float toRadians = 3.14159265f / 180.0f;
 
-GLuint VAO, VBO, shader, uniformModel;
+GLuint VAO, VBO, IBO, shader, uniformModel;
 
 bool direction = true;
 
@@ -36,11 +36,13 @@ static const char* vShader = "								\n\
 															\n\
 layout (location = 0) in vec3 pos;							\n\
 															\n\
+out vec4 vCol;												\n\
 uniform mat4 model; 										\n\
 															\n\
 void main()													\n\
 {															\n\
 	gl_Position = model * vec4(pos, 1.f);					\n\
+	vCol = vec4(clamp(pos, 0.0f, 1.0f), 1.0f);				\n\
 }";
 
 // Fragment Shader
@@ -49,9 +51,10 @@ static const char* fShader = "								\n\
 															\n\
 out vec4 colour;											\n\
 															\n\
+in vec4 vCol;												\n\
 void main()													\n\
 {															\n\
-	colour = vec4(1.f, 0.f, 0.f, 1.f);						\n\
+	colour = vCol;											\n\
 }";
 
 void AddShader(GLuint theProgram, const char* shaderCode, GLenum shaderType)
@@ -125,16 +128,27 @@ void CompileShaders()
 
 void CreateTriangle()
 {
+	unsigned int indices[] = {
+		0, 3, 1,
+		1, 3, 2,
+		2, 3, 0,
+		0, 1, 2
+	};
 	// First create a VAO
 	// In OpenGL the center of the screen is the coord 0,0
 	GLfloat vertices[] = {
-		-1.f, -1.f, 0.f,
-		1.f, -1.f, 0.f,
-		0.f, 1.f, 0.f
+		-1.f, -1.f, 0.f,	// 0
+		0.0f, -1.0f, 1.0f,	// 1
+		1.f, -1.f, 0.f,		// 2
+		0.f, 1.f, 0.f		// 3
 	};
 
 	glGenVertexArrays(1, &VAO);
 	glBindVertexArray(VAO); // This is the Binding of the VertexArray
+
+	glGenBuffers(1, &IBO);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
 	glGenBuffers(1, &VBO);
 	glBindBuffer(GL_ARRAY_BUFFER, VBO); // This is the Binding the Vertex Buffer Object
@@ -146,8 +160,8 @@ void CreateTriangle()
 	glEnableVertexAttribArray(0);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0); // This unbinds the Vertex Buffer Object
-
 	glBindVertexArray(0); // This unbinds the VertexArray
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); // This unbinds the Index Buffer Object
 }
 
 int main()
@@ -200,6 +214,8 @@ int main()
 		return 1;
 	}
 
+	glEnable(GL_DEPTH_TEST);
+
 	// Setup viewport size
 	glViewport(0, 0, bufferWidth, bufferHeight);
 
@@ -248,7 +264,7 @@ int main()
 
 		// Clear Window
 		glClearColor(0.f, 0.5f, 0.f, 1.f);
-		glClear(GL_COLOR_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		glUseProgram(shader);
 		
@@ -257,9 +273,11 @@ int main()
 		// 1.- Translate first then rotate second will move the object while rotating.
 		// 2.- Rotate first then translate will rotate the translation also. 
 		// 3.- Scale first then translate, will scale the position its moving also
-		model = glm::translate(model, glm::vec3(triOffset, 0.0f, 0.0f));
+		
+		//model = glm::translate(model, glm::vec3(triOffset, 0.0f, 0.0f));
+		model = glm::rotate(model, curAngle * toRadians, glm::vec3(0.f, 1.f, 0.f));
+		
 		model = glm::scale(model, glm::vec3(0.4f, 0.4f, 1.0f));
-		//model = glm::rotate(model, curAngle * toRadians, glm::vec3(0.f, 0.f, 1.f));
 
 
 
@@ -267,7 +285,9 @@ int main()
 
 
 		glBindVertexArray(VAO);
-		glDrawArrays(GL_TRIANGLES, 0, 3);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+		glDrawElements(GL_TRIANGLES, 12, GL_UNSIGNED_INT, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
 
 		glUseProgram(0);
