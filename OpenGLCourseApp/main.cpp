@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <cmath>
+#include <vector>
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -11,11 +12,15 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "Mesh.h"
+
 // Windows dimensions
 const GLint WIDTH = 800, HEIGHT = 600;
 const float toRadians = 3.14159265f / 180.0f;
 
-GLuint VAO, VBO, IBO, shader, uniformModel;
+std::vector<Mesh*> meshList;
+
+GLuint shader, uniformModel, uniformProjection;
 
 bool direction = true;
 
@@ -37,11 +42,13 @@ static const char* vShader = "								\n\
 layout (location = 0) in vec3 pos;							\n\
 															\n\
 out vec4 vCol;												\n\
+															\n\
 uniform mat4 model; 										\n\
+uniform mat4 projection;									\n\
 															\n\
 void main()													\n\
 {															\n\
-	gl_Position = model * vec4(pos, 1.f);					\n\
+	gl_Position = projection * model * vec4(pos, 1.f);		\n\
 	vCol = vec4(clamp(pos, 0.0f, 1.0f), 1.0f);				\n\
 }";
 
@@ -124,6 +131,7 @@ void CompileShaders()
 	}
 
 	uniformModel = glGetUniformLocation(shader, "model");
+	uniformProjection = glGetUniformLocation(shader, "projection");
 }
 
 void CreateTriangle()
@@ -143,25 +151,9 @@ void CreateTriangle()
 		0.f, 1.f, 0.f		// 3
 	};
 
-	glGenVertexArrays(1, &VAO);
-	glBindVertexArray(VAO); // This is the Binding of the VertexArray
-
-	glGenBuffers(1, &IBO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-	glGenBuffers(1, &VBO);
-	glBindBuffer(GL_ARRAY_BUFFER, VBO); // This is the Binding the Vertex Buffer Object
-			
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-	// The first parameters is the same ID for both methods 
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-	glEnableVertexAttribArray(0);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0); // This unbinds the Vertex Buffer Object
-	glBindVertexArray(0); // This unbinds the VertexArray
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); // This unbinds the Index Buffer Object
+	Mesh* obj1 = new Mesh();
+	obj1->CreateMesh(vertices, indices, 12, 12);
+	meshList.push_back(obj1);
 }
 
 int main()
@@ -221,6 +213,8 @@ int main()
 
 	CreateTriangle();
 	CompileShaders();
+	GLfloat aspectRatio = (GLfloat)bufferWidth / (GLfloat)bufferHeight;
+	glm::mat4 projection = glm::perspective(45.0f, aspectRatio, 0.1f, 100.0f);
 
 	// Loop until window closed
 	while (!glfwWindowShouldClose(mainWindow))
@@ -259,7 +253,7 @@ int main()
 
 		if (curSize >= maxSize || curSize <= minSize)
 		{
-			sizeOfDirection != sizeOfDirection;
+			sizeOfDirection = !sizeOfDirection;
 		}
 
 		// Clear Window
@@ -268,27 +262,23 @@ int main()
 
 		glUseProgram(shader);
 		
-		glm::mat4 model = glm::mat4(1.0);
+		glm::mat4 model(1.0f);
 		// The order how this operations are applied can change the result
 		// 1.- Translate first then rotate second will move the object while rotating.
 		// 2.- Rotate first then translate will rotate the translation also. 
 		// 3.- Scale first then translate, will scale the position its moving also
 		
-		//model = glm::translate(model, glm::vec3(triOffset, 0.0f, 0.0f));
-		model = glm::rotate(model, curAngle * toRadians, glm::vec3(0.f, 1.f, 0.f));
+		model = glm::translate(model, glm::vec3(triOffset, 0.0f, -2.5f));
+		//model = glm::rotate(model, curAngle * toRadians, glm::vec3(0.f, 1.f, 0.f));
 		
 		model = glm::scale(model, glm::vec3(0.4f, 0.4f, 1.0f));
 
 
 
 		glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
+		glUniformMatrix4fv(uniformProjection, 1, GL_FALSE, glm::value_ptr(projection));
 
-
-		glBindVertexArray(VAO);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
-		glDrawElements(GL_TRIANGLES, 12, GL_UNSIGNED_INT, 0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-		glBindVertexArray(0);
+		meshList[0]->RenderMesh();
 
 		glUseProgram(0);
 
